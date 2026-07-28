@@ -902,12 +902,12 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                         <th className="px-4 py-3.5">Grade</th>
                         <th className="px-4 py-3.5">Proctor</th>
                         <th className="px-4 py-3.5">Finished At</th>
-                        <th className="px-4 py-3.5 text-right">Action</th>
+                        <th className="px-4 py-3.5 w-20"></th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {filteredSubmissions.map((sub, idx) => (
-                        <tr key={sub.id} className={`transition-colors hover:bg-slate-800/30 ${idx === 0 ? 'bg-amber-500/5' : ''}`}>
+                        <tr key={sub.id} className={`group transition-colors hover:bg-slate-800/30 ${idx === 0 ? 'bg-amber-500/5' : ''}`}>
                           <td className="px-4 py-3.5 text-center">
                             <span className="text-base">
                               {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
@@ -915,7 +915,11 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                               )}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 font-bold text-white">{sub.studentName}</td>
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white">{sub.studentName}</span>
+                            </div>
+                          </td>
                           <td className="px-4 py-3.5 font-mono text-indigo-400">{sub.registerNo}</td>
                           {selectedExamFilter === 'all' && (
                             <td className="px-4 py-3.5 text-slate-400 max-w-[140px] truncate">{sub.examTitle || '—'}</td>
@@ -945,18 +949,19 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                               {new Date(sub.submittedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-right">
+                          {/* Delete — Last Column */}
+                          <td className="px-3 py-3.5 text-right">
                             {confirmDeleteId === sub.id ? (
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end gap-1">
                                 <button
                                   onClick={() => handleDeleteSubmission(sub.id)}
-                                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition-colors"
+                                  className="px-2 py-1 rounded-md bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition-colors"
                                 >
-                                  Confirm
+                                  Yes, Delete
                                 </button>
                                 <button
                                   onClick={() => setConfirmDeleteId(null)}
-                                  className="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold transition-colors"
+                                  className="px-2 py-1 rounded-md bg-slate-700 text-slate-300 text-[10px] font-bold"
                                 >
                                   Cancel
                                 </button>
@@ -964,11 +969,9 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                             ) : (
                               <button
                                 onClick={() => setConfirmDeleteId(sub.id)}
-                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-colors text-[11px] font-semibold"
-                                title="Delete result"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-all text-[11px] font-semibold"
                               >
-                                <Trash2 className="w-3 h-3" />
-                                Delete
+                                <Trash2 className="w-3 h-3" /> Delete
                               </button>
                             )}
                           </td>
