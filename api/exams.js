@@ -1,5 +1,30 @@
-// Vercel Serverless Function - Store & Fetch Exams across devices
-let globalExamsStore = [];
+// Vercel Serverless Function - Store & Fetch Exams across devices with /tmp file persistence
+import fs from 'fs';
+import path from 'path';
+
+const TMP_FILE = path.join('/tmp', 'exams_store.json');
+
+function loadStore() {
+  try {
+    if (fs.existsSync(TMP_FILE)) {
+      const data = fs.readFileSync(TMP_FILE, 'utf8');
+      return JSON.parse(data) || [];
+    }
+  } catch (e) {
+    console.error('Error reading exams /tmp store:', e);
+  }
+  return [];
+}
+
+function saveStore(exams) {
+  try {
+    fs.writeFileSync(TMP_FILE, JSON.stringify(exams, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error writing exams /tmp store:', e);
+  }
+}
+
+let memoryStore = loadStore();
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -21,7 +46,13 @@ export default async function handler(req, res) {
       if (exam && exam.title) {
         exam.id = exam.id || `exam-${Date.now().toString(36)}`;
         exam.createdAt = exam.createdAt || new Date().toISOString();
-        globalExamsStore.unshift(exam);
+        
+        memoryStore = loadStore();
+        // Remove existing duplicate if present
+        memoryStore = memoryStore.filter(e => e.id !== exam.id);
+        memoryStore.unshift(exam);
+        saveStore(memoryStore);
+
         return res.status(200).json({ success: true, exam });
       }
       return res.status(400).json({ success: false, message: 'Invalid exam payload' });
@@ -31,8 +62,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    return res.status(200).json({ success: true, exams: globalExamsStore });
+    memoryStore = loadStore();
+    return res.status(200).json({ success: true, exams: memoryStore });
   }
 
   return res.status(405).json({ message: 'Method Not Allowed' });
 }
+

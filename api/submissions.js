@@ -1,5 +1,30 @@
-// Vercel Serverless Function - Store & Fetch Student Submissions across all student devices
-let globalSubmissionsStore = [];
+// Vercel Serverless Function - Store & Fetch Student Submissions across all student devices with /tmp persistence
+import fs from 'fs';
+import path from 'path';
+
+const TMP_FILE = path.join('/tmp', 'submissions_store.json');
+
+function loadStore() {
+  try {
+    if (fs.existsSync(TMP_FILE)) {
+      const data = fs.readFileSync(TMP_FILE, 'utf8');
+      return JSON.parse(data) || [];
+    }
+  } catch (e) {
+    console.error('Error reading submissions /tmp store:', e);
+  }
+  return [];
+}
+
+function saveStore(submissions) {
+  try {
+    fs.writeFileSync(TMP_FILE, JSON.stringify(submissions, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Error writing submissions /tmp store:', e);
+  }
+}
+
+let memoryStore = loadStore();
 
 export default async function handler(req, res) {
   // Enable CORS headers for cross-device access
@@ -23,10 +48,13 @@ export default async function handler(req, res) {
         submission.id = submission.id || `sub-${Date.now().toString(36)}`;
         submission.submittedAt = submission.submittedAt || new Date().toISOString();
         
-        // Push to global submissions store
-        globalSubmissionsStore.unshift(submission);
+        memoryStore = loadStore();
+        // Avoid duplicate ID
+        memoryStore = memoryStore.filter(s => s.id !== submission.id);
+        memoryStore.unshift(submission);
+        saveStore(memoryStore);
         
-        return res.status(200).json({ success: true, submission, total: globalSubmissionsStore.length });
+        return res.status(200).json({ success: true, submission, total: memoryStore.length });
       }
       return res.status(400).json({ success: false, message: 'Invalid submission payload' });
     } catch (e) {
@@ -35,8 +63,10 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    return res.status(200).json({ success: true, submissions: globalSubmissionsStore });
+    memoryStore = loadStore();
+    return res.status(200).json({ success: true, submissions: memoryStore });
   }
 
   return res.status(405).json({ message: 'Method Not Allowed' });
 }
+

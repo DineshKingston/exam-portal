@@ -10,13 +10,13 @@ import { getAdminSettings } from './storageService';
  */
 function resolveEndpoint(baseUrl, path = '') {
   let cleanBase = (baseUrl || '').replace(/\/+$/, '');
-  
-  // If user enters NVIDIA API URL, map it to Vite proxy route '/nvidia-api'
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+  // If running in browser and targeting NVIDIA, try /nvidia-api first (Vite proxy or Vercel rewrite)
   if (cleanBase.includes('integrate.api.nvidia.com')) {
-    cleanBase = '/nvidia-api';
+    return `/nvidia-api${cleanPath}`;
   }
 
-  const cleanPath = path.startsWith('/') ? path : `/${path}`;
   return `${cleanBase}${cleanPath}`;
 }
 
@@ -75,7 +75,11 @@ async function fetchOpenCodeAIQuestions({
   registerNo,
   studentName
 }) {
-  const endpoint = resolveEndpoint(baseUrl, '/chat/completions');
+  const endpointsToTry = [
+    `/api/nvidia-proxy?path=/chat/completions&baseUrl=${encodeURIComponent(baseUrl)}`,
+    resolveEndpoint(baseUrl, '/chat/completions'),
+    `${baseUrl.replace(/\/+$/, '')}/chat/completions`
+  ];
 
   const systemPrompt = `You are an expert academic assessment AI creating unique, high-quality Multiple Choice Questions (MCQs).
 Target Topic: "${topic}"
@@ -84,14 +88,9 @@ Total Questions Required: ${questionCount}
 Student Registration ID Seed: "${registerNo}" (Student Name: ${studentName})
 
 RULES:
-1. Questions should be conceptual, clear, engaging, and practical (not overly obscure, heavy technical syntax unless specified by topic).
-2. Format MUST be a valid JSON array of question objects only. Do NOT include markdown codeblocks or extra text.
-3. Each question object MUST have:
-   - "id": number (1 to ${questionCount})
-   - "question": string
-   - "options": array of 4 distinct strings [Option A, Option B, Option C, Option D]
-   - "answerIndex": number (0, 1, 2, or 3 representing the correct option)
-   - "explanation": concise string explaining why the answer is correct
+1. Questions should be conceptual, clear, engaging, and practical.
+2. Format MUST be a valid JSON array of question objects only.
+3. Each question object MUST have: "id", "question", "options" (4 distinct strings), "answerIndex" (0-3), "explanation".
 
 JSON Output Format:
 [
@@ -104,176 +103,167 @@ JSON Output Format:
   }
 ]`;
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s max timeout for question generation
+  let lastError = null;
 
-  try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.trim()}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Generate ${questionCount} unique MCQs for student ${registerNo} on topic: ${topic}` }
-        ],
-        temperature: 0.7
-      }),
-      signal: controller.signal
-    });
+  for (const endpoint of endpointsToTry) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    clearTimeout(timeoutId);
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Generate ${questionCount} unique MCQs for student ${registerNo} on topic: ${topic}` }
+          ],
+          temperature: 0.7
+        }),
+        signal: controller.signal
+      });
 
-    if (!response.ok) {
-      throw new Error(`API error: ${response.status} ${response.statusText}`);
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content || '';
+        const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
+        const rawJson = jsonMatch ? jsonMatch[0] : content;
+        const parsed = JSON.parse(rawJson);
+
+        if (Array.isArray(parsed)) {
+          return parsed.slice(0, questionCount).map((q, idx) => ({
+            id: idx + 1,
+            question: q.question || `Question ${idx + 1}`,
+            options: Array.isArray(q.options) && q.options.length === 4 ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
+            answerIndex: typeof q.answerIndex === 'number' ? q.answerIndex % 4 : 0,
+            explanation: q.explanation || 'Option is correct based on core principles.'
+          }));
+        }
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastError = err;
     }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    
-    // Extract JSON string from response
-    const jsonMatch = content.match(/\[\s*\{.*\}\s*\]/s);
-    const rawJson = jsonMatch ? jsonMatch[0] : content;
-    const parsed = JSON.parse(rawJson);
-
-    if (Array.isArray(parsed)) {
-      return parsed.slice(0, questionCount).map((q, idx) => ({
-        id: idx + 1,
-        question: q.question || `Question ${idx + 1}`,
-        options: Array.isArray(q.options) && q.options.length === 4 ? q.options : ['Option A', 'Option B', 'Option C', 'Option D'],
-        answerIndex: typeof q.answerIndex === 'number' ? q.answerIndex % 4 : 0,
-        explanation: q.explanation || 'Option is correct based on core principles.'
-      }));
-    }
-
-    throw new Error('Parsed response is not a valid question array');
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
   }
+
+  throw lastError || new Error('All question generation endpoints failed');
 }
 
 /**
- * Fetch available models dynamically from API endpoint /models
+ * Fetch available models dynamically from API endpoint /models with multi-tier fallback
  */
 export async function fetchAvailableApiModels(apiKey = '', baseUrl = 'https://integrate.api.nvidia.com/v1') {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s timeout
-
-  try {
-    const endpoint = resolveEndpoint(baseUrl, '/models');
-
-    const headers = { 'Content-Type': 'application/json' };
-    if (apiKey && apiKey.trim()) {
-      headers['Authorization'] = `Bearer ${apiKey.trim()}`;
-    }
-
-    const response = await fetch(endpoint, { 
-      method: 'GET', 
-      headers,
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`API returned HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rawList = data.data || data.models || (Array.isArray(data) ? data : []);
-
-    if (Array.isArray(rawList) && rawList.length > 0) {
-      const models = rawList.map(item => {
-        if (typeof item === 'string') return { id: item, name: item };
-        return {
-          id: item.id || item.name || item.model || 'unknown-model',
-          name: item.name || item.id || item.display_name || item.id
-        };
-      });
-      return { success: true, models };
-    }
-
-    return { success: false, message: 'No models array found in API response', models: [] };
-  } catch (err) {
-    clearTimeout(timeoutId);
-    const msg = err.name === 'AbortError' ? 'Model fetch request timed out' : err.message;
-    return { success: false, message: `Could not fetch models automatically: ${msg}`, models: [] };
+  const cleanBase = (baseUrl || 'https://integrate.api.nvidia.com/v1').replace(/\/+$/, '');
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey && apiKey.trim()) {
+    headers['Authorization'] = `Bearer ${apiKey.trim()}`;
   }
+
+  // Tier 1: Try Vercel Serverless Endpoint /api/models (Server-side fetch, avoids CORS/proxy issues)
+  try {
+    const serverlessUrl = `/api/models?baseUrl=${encodeURIComponent(cleanBase)}`;
+    const response = await fetch(serverlessUrl, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && Array.isArray(data.models) && data.models.length > 0) {
+        return { success: true, models: data.models };
+      }
+    }
+  } catch (e) {
+    // Continue to next tier
+  }
+
+  // Tier 2: Try Vercel Rewrite / Vite Proxy /nvidia-api/models
+  try {
+    const proxyUrl = resolveEndpoint(cleanBase, '/models');
+    const response = await fetch(proxyUrl, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      const rawList = data.data || data.models || (Array.isArray(data) ? data : []);
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const models = rawList.map(item => typeof item === 'string' ? { id: item, name: item } : { id: item.id || item.name, name: item.name || item.id });
+        return { success: true, models };
+      }
+    }
+  } catch (e) {
+    // Continue to next tier
+  }
+
+  // Tier 3: Direct fetch to cleanBase/models
+  try {
+    const directUrl = `${cleanBase}/models`;
+    const response = await fetch(directUrl, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      const rawList = data.data || data.models || (Array.isArray(data) ? data : []);
+      if (Array.isArray(rawList) && rawList.length > 0) {
+        const models = rawList.map(item => typeof item === 'string' ? { id: item, name: item } : { id: item.id || item.name, name: item.name || item.id });
+        return { success: true, models };
+      }
+    }
+  } catch (e) {
+    // End of tiers
+  }
+
+  return { 
+    success: false, 
+    message: 'Could not fetch models automatically. Select your NVIDIA model from the comprehensive catalog list below.', 
+    models: [] 
+  };
 }
 
 /**
- * Test OpenCode / NVIDIA API Key connection with fast 7s AbortController timeout & dual verification
+ * Test OpenCode / NVIDIA API Key connection with fast multi-tier verification
  */
 export async function testOpenCodeApiKey(apiKey, baseUrl = 'https://integrate.api.nvidia.com/v1', model = 'meta/llama-3.1-405b-instruct') {
   if (!apiKey || !apiKey.trim()) {
     return { success: false, message: 'API key cannot be empty' };
   }
 
-  // Method 1: Fast test via GET /models
-  const controller1 = new AbortController();
-  const timeout1 = setTimeout(() => controller1.abort(), 5000); // 5s fast test
-
-  try {
-    const modelsEndpoint = resolveEndpoint(baseUrl, '/models');
-    const response = await fetch(modelsEndpoint, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.trim()}`
-      },
-      signal: controller1.signal
-    });
-
-    clearTimeout(timeout1);
-
-    if (response.ok) {
-      return { success: true, message: 'API Key & Endpoint authenticated successfully!' };
-    }
-  } catch (e) {
-    clearTimeout(timeout1);
+  // Try Serverless /api/models first
+  const res = await fetchAvailableApiModels(apiKey, baseUrl);
+  if (res.success && res.models.length > 0) {
+    return { success: true, message: `API Key & Endpoint authenticated successfully! (${res.models.length} models accessible)` };
   }
 
-  // Method 2: Fallback test via POST /chat/completions with 7s timeout
-  const controller2 = new AbortController();
-  const timeout2 = setTimeout(() => controller2.abort(), 7000);
+  // Fallback try test completion via proxy or direct
+  const cleanBase = (baseUrl || 'https://integrate.api.nvidia.com/v1').replace(/\/+$/, '');
+  const testEndpoints = [
+    `/api/nvidia-proxy?path=/chat/completions&baseUrl=${encodeURIComponent(cleanBase)}`,
+    resolveEndpoint(cleanBase, '/chat/completions'),
+    `${cleanBase}/chat/completions`
+  ];
 
-  try {
-    const chatEndpoint = resolveEndpoint(baseUrl, '/chat/completions');
+  for (const endpoint of testEndpoints) {
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey.trim()}`
+        },
+        body: JSON.stringify({
+          model: model || 'meta/llama-3.1-405b-instruct',
+          messages: [{ role: 'user', content: 'Respond OK' }],
+          max_tokens: 5
+        })
+      });
 
-    const response = await fetch(chatEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey.trim()}`
-      },
-      body: JSON.stringify({
-        model: model || 'meta/llama-3.1-405b-instruct',
-        messages: [{ role: 'user', content: 'Respond OK' }],
-        max_tokens: 5
-      }),
-      signal: controller2.signal
-    });
-
-    clearTimeout(timeout2);
-
-    if (response.ok) {
-      return { success: true, message: 'API Key authenticated successfully!' };
-    } else {
-      const errText = await response.text();
-      return { success: false, message: `Auth Failed (${response.status}): ${errText.slice(0, 100)}` };
+      if (response.ok) {
+        return { success: true, message: 'API Key authenticated successfully!' };
+      }
+    } catch (e) {
+      // Continue
     }
-  } catch (err) {
-    clearTimeout(timeout2);
-    const isTimeout = err.name === 'AbortError';
-    const message = isTimeout 
-      ? 'Connection timed out (7s). Please check your internet connection or API Key string.' 
-      : `Network error connecting to API: ${err.message}`;
-    return { success: false, message };
   }
+
+  return { success: false, message: 'Authentication Failed. Please verify your NVIDIA API Key or network connectivity.' };
 }
 
 /**
