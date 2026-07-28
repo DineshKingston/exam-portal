@@ -12,7 +12,7 @@ const STORAGE_KEYS = {
 
 // Initial Seed Data
 const DEFAULT_SETTINGS = {
-  adminPassword: 'admin', // Default Admin Access Password
+  adminPassword: 'admin', 
   opencodeApiKey: '',
   opencodeBaseUrl: 'https://integrate.api.nvidia.com/v1',
   opencodeModel: 'meta/llama-3.1-405b-instruct',
@@ -124,6 +124,13 @@ export function saveSubmission(submission) {
   syncSubmissionToVercelAPI(newSubmission);
 
   return newSubmission;
+}
+
+export function deleteSubmission(submissionId) {
+  const submissions = getAllSubmissions();
+  const updated = submissions.filter(s => s.id !== submissionId);
+  writeStorage(STORAGE_KEYS.SUBMISSIONS, updated);
+  return updated;
 }
 
 /* ==================== AUTOMATIC VERCEL BACKEND SYNC ==================== */

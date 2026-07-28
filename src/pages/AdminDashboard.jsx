@@ -7,7 +7,7 @@ import {
 import { 
   getAllExams, saveExam, deleteExam, 
   getAdminSettings, saveAdminSettings, 
-  getAllSubmissions, verifyAdminPassword, fetchRemoteSubmissions, fetchRemoteExams 
+  getAllSubmissions, deleteSubmission, verifyAdminPassword, fetchRemoteSubmissions, fetchRemoteExams 
 } from '../services/storageService';
 import { testOpenCodeApiKey, fetchAvailableApiModels } from '../services/aiService';
 import PasscodeTimerBadge from '../components/PasscodeTimerBadge';
@@ -52,6 +52,7 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
   const [submissions, setSubmissions] = useState(() => getAllSubmissions());
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedExamFilter, setSelectedExamFilter] = useState('all');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   // Copy Link Toast
   const [copiedExamId, setCopiedExamId] = useState(null);
@@ -176,6 +177,12 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
     navigator.clipboard.writeText(shareUrl);
     setCopiedExamId(examId);
     setTimeout(() => setCopiedExamId(null), 2500);
+  };
+
+  const handleDeleteSubmission = (submissionId) => {
+    const updated = deleteSubmission(submissionId);
+    setSubmissions(updated);
+    setConfirmDeleteId(null);
   };
 
   // Filter & Sort Submissions — sorted by submittedAt ascending (first finisher first)
@@ -687,8 +694,6 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                   Ranked by submission time — first to finish appears first
                 </p>
               </div>
-
-              {/* Search */}
               <div className="relative w-full sm:w-56">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
@@ -719,7 +724,7 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                   <button
                     key={exam.id}
                     onClick={() => setSelectedExamFilter(exam.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all max-w-[180px] truncate ${
                       selectedExamFilter === exam.id
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
                         : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
@@ -732,6 +737,70 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
             </div>
           </div>
 
+          {/* ── Per-Course Podium (only when a specific course is selected) ── */}
+          {selectedExamFilter !== 'all' && filteredSubmissions.length >= 1 && (
+            <div className="glass-card rounded-2xl p-4 sm:p-6 border border-indigo-500/20 bg-indigo-950/10 space-y-4">
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-amber-400" />
+                {exams.find(e => e.id === selectedExamFilter)?.title} — Leaderboard
+              </h4>
+
+              {/* Podium Visual */}
+              <div className="flex items-end justify-center gap-3 sm:gap-6 py-2">
+                {/* 2nd Place */}
+                {filteredSubmissions[1] && (
+                  <div className="flex flex-col items-center gap-2 w-24 sm:w-28">
+                    <div className="w-10 h-10 rounded-full bg-slate-600/40 border-2 border-slate-400/50 flex items-center justify-center text-lg">🥈</div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-slate-200 truncate max-w-[90px]">{filteredSubmissions[1].studentName}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">{filteredSubmissions[1].registerNo}</p>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-md mt-1 inline-block ${filteredSubmissions[1].percentage >= 50 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {filteredSubmissions[1].percentage}%
+                      </span>
+                    </div>
+                    <div className="w-full h-14 sm:h-16 bg-slate-600/25 border border-slate-600/40 rounded-t-xl flex items-center justify-center text-slate-400 text-xs font-bold">
+                      2nd
+                    </div>
+                  </div>
+                )}
+
+                {/* 1st Place */}
+                {filteredSubmissions[0] && (
+                  <div className="flex flex-col items-center gap-2 w-28 sm:w-32">
+                    <div className="w-12 h-12 rounded-full bg-amber-500/20 border-2 border-amber-400/60 flex items-center justify-center text-xl shadow-lg shadow-amber-500/20">🥇</div>
+                    <div className="text-center">
+                      <p className="text-sm font-extrabold text-white truncate max-w-[110px]">{filteredSubmissions[0].studentName}</p>
+                      <p className="text-[10px] text-indigo-400 font-mono">{filteredSubmissions[0].registerNo}</p>
+                      <span className={`text-sm font-black px-2 py-0.5 rounded-md mt-1 inline-block ${filteredSubmissions[0].percentage >= 50 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                        {filteredSubmissions[0].percentage}%
+                      </span>
+                    </div>
+                    <div className="w-full h-20 sm:h-24 bg-amber-500/15 border border-amber-500/30 rounded-t-xl flex items-center justify-center text-amber-400 text-sm font-extrabold shadow-md shadow-amber-500/10">
+                      1st 🏆
+                    </div>
+                  </div>
+                )}
+
+                {/* 3rd Place */}
+                {filteredSubmissions[2] && (
+                  <div className="flex flex-col items-center gap-2 w-24 sm:w-28">
+                    <div className="w-10 h-10 rounded-full bg-orange-500/15 border-2 border-orange-400/40 flex items-center justify-center text-lg">🥉</div>
+                    <div className="text-center">
+                      <p className="text-xs font-bold text-slate-200 truncate max-w-[90px]">{filteredSubmissions[2].studentName}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">{filteredSubmissions[2].registerNo}</p>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-md mt-1 inline-block ${filteredSubmissions[2].percentage >= 50 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {filteredSubmissions[2].percentage}%
+                      </span>
+                    </div>
+                    <div className="w-full h-10 sm:h-12 bg-orange-500/10 border border-orange-500/25 rounded-t-xl flex items-center justify-center text-orange-400 text-xs font-bold">
+                      3rd
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Submissions List */}
           {filteredSubmissions.length === 0 ? (
             <div className="glass-card rounded-2xl border border-slate-800 text-center py-16 text-slate-500">
@@ -742,10 +811,9 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
           ) : (
             <>
               {/* Mobile: Card View */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 lg:hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:hidden">
                 {filteredSubmissions.map((sub, idx) => (
-                  <div key={sub.id} className="glass-card rounded-2xl border border-slate-800 p-4 space-y-3 relative overflow-hidden">
-                    {/* Rank Badge */}
+                  <div key={sub.id} className={`glass-card rounded-2xl border p-4 space-y-3 ${idx === 0 ? 'border-amber-500/30 bg-amber-500/5' : 'border-slate-800'}`}>
                     <div className="flex items-center justify-between">
                       <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold ${
                         idx === 0 ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' :
@@ -754,19 +822,46 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                         'bg-slate-800 text-slate-500'
                       }`}>
                         <Trophy className="w-3 h-3" />
-                        #{idx + 1}
+                        {idx === 0 ? '🥇 1st' : idx === 1 ? '🥈 2nd' : idx === 2 ? '🥉 3rd' : `#${idx + 1}`}
                       </div>
-                      <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                        sub.percentage >= 50 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
-                      }`}>
-                        {sub.percentage}%
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                          sub.percentage >= 50 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                        }`}>
+                          {sub.percentage}%
+                        </span>
+                        {/* Delete Button */}
+                        {confirmDeleteId === sub.id ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => handleDeleteSubmission(sub.id)}
+                              className="px-2 py-1 rounded-lg bg-rose-600 text-white text-[10px] font-bold"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteId(null)}
+                              className="px-2 py-1 rounded-lg bg-slate-700 text-slate-300 text-[10px] font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteId(sub.id)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/25 transition-colors border border-rose-500/20"
+                            title="Delete result"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div>
                       <p className="text-sm font-bold text-white">{sub.studentName}</p>
                       <p className="text-xs font-mono text-indigo-400 mt-0.5">{sub.registerNo}</p>
-                      {sub.examTitle && (
+                      {selectedExamFilter === 'all' && sub.examTitle && (
                         <p className="text-xs text-slate-500 mt-1 truncate">{sub.examTitle}</p>
                       )}
                     </div>
@@ -807,25 +902,23 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                         <th className="px-4 py-3.5">Grade</th>
                         <th className="px-4 py-3.5">Proctor</th>
                         <th className="px-4 py-3.5">Finished At</th>
+                        <th className="px-4 py-3.5 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60">
                       {filteredSubmissions.map((sub, idx) => (
                         <tr key={sub.id} className={`transition-colors hover:bg-slate-800/30 ${idx === 0 ? 'bg-amber-500/5' : ''}`}>
                           <td className="px-4 py-3.5 text-center">
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${
-                              idx === 0 ? 'bg-amber-500/20 text-amber-400' :
-                              idx === 1 ? 'bg-slate-600/30 text-slate-300' :
-                              idx === 2 ? 'bg-orange-500/15 text-orange-400' :
-                              'text-slate-500'
-                            }`}>
-                              {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                            <span className="text-base">
+                              {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : (
+                                <span className="text-slate-500 font-bold text-xs">#{idx + 1}</span>
+                              )}
                             </span>
                           </td>
                           <td className="px-4 py-3.5 font-bold text-white">{sub.studentName}</td>
                           <td className="px-4 py-3.5 font-mono text-indigo-400">{sub.registerNo}</td>
                           {selectedExamFilter === 'all' && (
-                            <td className="px-4 py-3.5 text-slate-400 max-w-[150px] truncate">{sub.examTitle || '—'}</td>
+                            <td className="px-4 py-3.5 text-slate-400 max-w-[140px] truncate">{sub.examTitle || '—'}</td>
                           )}
                           <td className="px-4 py-3.5 font-bold text-slate-200">{sub.score} / {sub.totalQuestions}</td>
                           <td className="px-4 py-3.5">
@@ -846,9 +939,38 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3.5 text-slate-400 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(sub.submittedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                          <td className="px-4 py-3.5 text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(sub.submittedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 text-right">
+                            {confirmDeleteId === sub.id ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => handleDeleteSubmission(sub.id)}
+                                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-bold transition-colors"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-[10px] font-bold transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteId(sub.id)}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 transition-colors text-[11px] font-semibold"
+                                title="Delete result"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                Delete
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

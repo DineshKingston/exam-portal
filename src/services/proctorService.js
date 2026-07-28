@@ -22,6 +22,9 @@ export class ProctorManager {
     this.handleContextMenu = this.handleContextMenu.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
     this.handleCopyPaste = this.handleCopyPaste.bind(this);
+    // Mobile specific handlers
+    this.handlePopState = this.handlePopState.bind(this);
+    this.handlePageHide = this.handlePageHide.bind(this);
   }
 
   /**
@@ -60,6 +63,13 @@ export class ProctorManager {
     document.addEventListener('copy', this.handleCopyPaste);
     document.addEventListener('paste', this.handleCopyPaste);
     document.addEventListener('cut', this.handleCopyPaste);
+
+    // Mobile: Push a dummy history state so Back button triggers popstate instead of navigating away
+    history.pushState({ exam: true }, '');
+    window.addEventListener('popstate', this.handlePopState);
+
+    // Mobile: App switch / tab close detection
+    window.addEventListener('pagehide', this.handlePageHide);
   }
 
   /**
@@ -77,6 +87,8 @@ export class ProctorManager {
     document.removeEventListener('copy', this.handleCopyPaste);
     document.removeEventListener('paste', this.handleCopyPaste);
     document.removeEventListener('cut', this.handleCopyPaste);
+    window.removeEventListener('popstate', this.handlePopState);
+    window.removeEventListener('pagehide', this.handlePageHide);
 
     // Exit fullscreen if active
     if (document.fullscreenElement && document.exitFullscreen) {
@@ -138,6 +150,26 @@ export class ProctorManager {
       this.triggerViolation(
         'FULLSCREEN_EXIT',
         'Student exited full screen mode.'
+      );
+    }
+  }
+
+  handlePopState() {
+    // Mobile back button pressed — push dummy state again to trap within exam page
+    history.pushState({ exam: true }, '');
+    this.triggerViolation(
+      'BACK_BUTTON',
+      'Mobile back button / navigation attempt blocked.'
+    );
+  }
+
+  handlePageHide(e) {
+    // Mobile: app switched to background or page unloading
+    if (!e.persisted) {
+      // Page is truly leaving (not bfcache)
+      this.triggerViolation(
+        'PAGE_EXIT',
+        'Student attempted to leave the exam page.'
       );
     }
   }

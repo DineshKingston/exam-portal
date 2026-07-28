@@ -166,6 +166,9 @@ export default function ExamProctor({ examConfig, onFinish }) {
     const percentage = Math.round((score / total) * 100);
     const timeTakenSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
 
+    // Read violation count directly from ProctorManager (avoids stale React state closure)
+    const liveViolations = proctorRef.current?.warningCount ?? lastViolation.warningCount ?? 0;
+
     const submissionData = {
       examId,
       examTitle,
@@ -175,7 +178,7 @@ export default function ExamProctor({ examConfig, onFinish }) {
       totalQuestions: total,
       percentage,
       userAnswers,
-      violationsCount: lastViolation.warningCount || 0,
+      violationsCount: liveViolations,
       forcedBySecurity,
       timeTakenSeconds
     };
