@@ -20,30 +20,8 @@ const DEFAULT_SETTINGS = {
   cloudSyncUrl: ''
 };
 
-const DEFAULT_EXAMS = [
-  {
-    id: 'exam-genai-101',
-    title: 'Generative AI & LLM Core Concepts',
-    topic: 'Artificial Intelligence & Neural Networks',
-    questionCount: 10,
-    difficulty: 'Medium',
-    useDynamicPasscode: true, // 1-minute rotating passcode
-    staticPasscode: '654321', // fallback static passcode
-    createdAt: new Date().toISOString(),
-    status: 'ACTIVE'
-  },
-  {
-    id: 'exam-py-202',
-    title: 'Python Data Structures & Security',
-    topic: 'Python Programming',
-    questionCount: 10,
-    difficulty: 'Easy',
-    useDynamicPasscode: true,
-    staticPasscode: '123456',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    status: 'ACTIVE'
-  }
-];
+const DEFAULT_EXAMS = [];
+
 
 // Helper: Read LocalStorage with JSON parse
 function readStorage(key, fallback) {

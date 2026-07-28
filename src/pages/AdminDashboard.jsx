@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   PlusCircle, BookOpen, Key, Users, Sparkles, CheckCircle2, 
   AlertCircle, Trash2, ExternalLink, ShieldAlert, Copy, Check,
-  Search, Filter, RefreshCw, Eye, Lock, ShieldCheck, KeyRound, Download, Cpu
+  Search, RefreshCw, Lock, Download, Cpu, Trophy, Clock
 } from 'lucide-react';
 import { 
   getAllExams, saveExam, deleteExam, 
@@ -51,6 +51,7 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
   // Submissions & Audit Logs State
   const [submissions, setSubmissions] = useState(() => getAllSubmissions());
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedExamFilter, setSelectedExamFilter] = useState('all');
 
   // Copy Link Toast
   const [copiedExamId, setCopiedExamId] = useState(null);
@@ -177,15 +178,19 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
     setTimeout(() => setCopiedExamId(null), 2500);
   };
 
-  // Filter Submissions
-  const filteredSubmissions = submissions.filter(s => {
-    const q = searchQuery.toLowerCase();
-    return (
-      s.studentName.toLowerCase().includes(q) ||
-      s.registerNo.toLowerCase().includes(q) ||
-      (s.examTitle && s.examTitle.toLowerCase().includes(q))
-    );
-  });
+  // Filter & Sort Submissions — sorted by submittedAt ascending (first finisher first)
+  const filteredSubmissions = submissions
+    .filter(s => {
+      const q = searchQuery.toLowerCase();
+      const matchSearch = (
+        s.studentName?.toLowerCase().includes(q) ||
+        s.registerNo?.toLowerCase().includes(q) ||
+        (s.examTitle && s.examTitle.toLowerCase().includes(q))
+      );
+      const matchExam = selectedExamFilter === 'all' || s.examId === selectedExamFilter;
+      return matchSearch && matchExam;
+    })
+    .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
 
   // Comprehensive NVIDIA & OpenCode Catalog Models
   const nvidiaAndCatalogPresets = [
@@ -668,90 +673,194 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
 
       {/* ================= TAB 3: SUBMISSIONS & AUDITS ================= */}
       {activeTab === 'submissions' && (
-        <div className="glass-card rounded-2xl p-5 sm:p-6 border border-slate-800 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-400" />
-                Student Results & Security Audits
-              </h3>
-              <p className="text-xs text-slate-400">
-                View submitted answer sheets and inspect proctoring violation logs.
-              </p>
+        <div className="space-y-4">
+
+          {/* Header Row */}
+          <div className="glass-card rounded-2xl p-4 sm:p-6 border border-slate-800 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-400" />
+                  Student Results &amp; Audits
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Ranked by submission time — first to finish appears first
+                </p>
+              </div>
+
+              {/* Search */}
+              <div className="relative w-full sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search name or reg no..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 rounded-xl glass-input text-xs"
+                />
+              </div>
             </div>
 
-            {/* Search Box */}
-            <div className="relative w-full sm:w-64">
-              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              <input
-                type="text"
-                placeholder="Search student or reg no..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-xl glass-input text-xs"
-              />
+            {/* Per-Exam Filter Tabs */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => setSelectedExamFilter('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  selectedExamFilter === 'all'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                }`}
+              >
+                All Courses ({submissions.length})
+              </button>
+              {exams.map(exam => {
+                const count = submissions.filter(s => s.examId === exam.id).length;
+                return (
+                  <button
+                    key={exam.id}
+                    onClick={() => setSelectedExamFilter(exam.id)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      selectedExamFilter === exam.id
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/25'
+                        : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
+                    }`}
+                  >
+                    {exam.title} ({count})
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Submissions Table with horizontal scroll for mobile */}
+          {/* Submissions List */}
           {filteredSubmissions.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 text-sm">
-              No student submissions recorded yet. Share an exam link with students to get started!
+            <div className="glass-card rounded-2xl border border-slate-800 text-center py-16 text-slate-500">
+              <Users className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p className="text-sm font-semibold">No submissions yet</p>
+              <p className="text-xs mt-1 text-slate-600">Share an exam link with students to get started</p>
             </div>
           ) : (
-            <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full text-left text-xs text-slate-300 min-w-[600px]">
-                <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-800">
-                  <tr>
-                    <th className="px-4 py-3">Student Name</th>
-                    <th className="px-4 py-3">Reg Number</th>
-                    <th className="px-4 py-3">Score</th>
-                    <th className="px-4 py-3">Grade %</th>
-                    <th className="px-4 py-3">Proctor Record</th>
-                    <th className="px-4 py-3">Submitted At</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {filteredSubmissions.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-slate-850/50 transition-colors">
-                      <td className="px-4 py-3.5 font-bold text-white">
-                        {sub.studentName}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-indigo-300">
-                        {sub.registerNo}
-                      </td>
-                      <td className="px-4 py-3 font-bold text-slate-200">
-                        {sub.score} / {sub.totalQuestions}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded font-bold ${
-                          sub.percentage >= 50 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'
-                        }`}>
-                          {sub.percentage}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
+            <>
+              {/* Mobile: Card View */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 lg:hidden">
+                {filteredSubmissions.map((sub, idx) => (
+                  <div key={sub.id} className="glass-card rounded-2xl border border-slate-800 p-4 space-y-3 relative overflow-hidden">
+                    {/* Rank Badge */}
+                    <div className="flex items-center justify-between">
+                      <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-bold ${
+                        idx === 0 ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' :
+                        idx === 1 ? 'bg-slate-400/10 text-slate-300 border border-slate-600/30' :
+                        idx === 2 ? 'bg-orange-500/10 text-orange-400 border border-orange-500/25' :
+                        'bg-slate-800 text-slate-500'
+                      }`}>
+                        <Trophy className="w-3 h-3" />
+                        #{idx + 1}
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                        sub.percentage >= 50 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                      }`}>
+                        {sub.percentage}%
+                      </span>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-bold text-white">{sub.studentName}</p>
+                      <p className="text-xs font-mono text-indigo-400 mt-0.5">{sub.registerNo}</p>
+                      {sub.examTitle && (
+                        <p className="text-xs text-slate-500 mt-1 truncate">{sub.examTitle}</p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                      <span className="text-xs font-bold text-slate-200">{sub.score} / {sub.totalQuestions}</span>
+                      <div className="flex items-center gap-2">
                         {sub.violationsCount === 0 ? (
-                          <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Clean
+                          <span className="text-xs text-emerald-400 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Clean
                           </span>
                         ) : (
-                          <span className="text-amber-400 font-semibold flex items-center gap-1">
-                            <ShieldAlert className="w-3.5 h-3.5" /> {sub.violationsCount} Flag(s)
+                          <span className="text-xs text-amber-400 flex items-center gap-1">
+                            <ShieldAlert className="w-3 h-3" /> {sub.violationsCount} flag
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-slate-400">
-                        {new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop: Table View */}
+              <div className="glass-card rounded-2xl border border-slate-800 overflow-hidden hidden lg:block">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-bold tracking-widest border-b border-slate-800">
+                      <tr>
+                        <th className="px-4 py-3.5 w-14 text-center">Rank</th>
+                        <th className="px-4 py-3.5">Student</th>
+                        <th className="px-4 py-3.5">Reg Number</th>
+                        {selectedExamFilter === 'all' && <th className="px-4 py-3.5">Course</th>}
+                        <th className="px-4 py-3.5">Score</th>
+                        <th className="px-4 py-3.5">Grade</th>
+                        <th className="px-4 py-3.5">Proctor</th>
+                        <th className="px-4 py-3.5">Finished At</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {filteredSubmissions.map((sub, idx) => (
+                        <tr key={sub.id} className={`transition-colors hover:bg-slate-800/30 ${idx === 0 ? 'bg-amber-500/5' : ''}`}>
+                          <td className="px-4 py-3.5 text-center">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md text-xs font-bold ${
+                              idx === 0 ? 'bg-amber-500/20 text-amber-400' :
+                              idx === 1 ? 'bg-slate-600/30 text-slate-300' :
+                              idx === 2 ? 'bg-orange-500/15 text-orange-400' :
+                              'text-slate-500'
+                            }`}>
+                              {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5 font-bold text-white">{sub.studentName}</td>
+                          <td className="px-4 py-3.5 font-mono text-indigo-400">{sub.registerNo}</td>
+                          {selectedExamFilter === 'all' && (
+                            <td className="px-4 py-3.5 text-slate-400 max-w-[150px] truncate">{sub.examTitle || '—'}</td>
+                          )}
+                          <td className="px-4 py-3.5 font-bold text-slate-200">{sub.score} / {sub.totalQuestions}</td>
+                          <td className="px-4 py-3.5">
+                            <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
+                              sub.percentage >= 50 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                            }`}>
+                              {sub.percentage}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {sub.violationsCount === 0 ? (
+                              <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Clean
+                              </span>
+                            ) : (
+                              <span className="text-amber-400 font-semibold flex items-center gap-1">
+                                <ShieldAlert className="w-3.5 h-3.5" /> {sub.violationsCount} Flag(s)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 text-slate-400 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(sub.submittedAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
+
 
       {/* ================= CREATE EXAM MODAL ================= */}
       {showCreateModal && (
