@@ -7,7 +7,7 @@ import {
 import { 
   getAllExams, saveExam, deleteExam, 
   getAdminSettings, saveAdminSettings, 
-  getAllSubmissions, verifyAdminPassword, fetchRemoteSubmissions 
+  getAllSubmissions, verifyAdminPassword, fetchRemoteSubmissions, fetchRemoteExams 
 } from '../services/storageService';
 import { testOpenCodeApiKey, fetchAvailableApiModels } from '../services/aiService';
 import PasscodeTimerBadge from '../components/PasscodeTimerBadge';
@@ -59,7 +59,13 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
     setExams(getAllExams());
     setSubmissions(getAllSubmissions());
 
-    // Auto-fetch student submissions from Vercel Serverless Backend API
+    // Auto-fetch remote exams & submissions from Vercel Serverless Backend API
+    fetchRemoteExams().then(updated => {
+      if (updated && updated.length >= 0) {
+        setExams(updated);
+      }
+    });
+
     fetchRemoteSubmissions().then(updated => {
       if (updated && updated.length >= 0) {
         setSubmissions(updated);

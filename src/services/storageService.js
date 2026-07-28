@@ -180,6 +180,37 @@ async function syncExamToVercelAPI(examData) {
 }
 
 /**
+ * Fetch remote exams from Vercel Serverless API backend to merge into Admin & Student view across all devices!
+ */
+export async function fetchRemoteExams() {
+  try {
+    const settings = getAdminSettings();
+    const endpoint = settings.cloudSyncUrl ? `${settings.cloudSyncUrl}/exams` : '/api/exams';
+
+    const response = await fetch(endpoint);
+    if (response.ok) {
+      const data = await response.json();
+      const remoteList = data.exams || (Array.isArray(data) ? data : []);
+
+      if (Array.isArray(remoteList) && remoteList.length > 0) {
+        const local = getAllExams();
+        const mergedMap = new Map();
+        [...DEFAULT_EXAMS, ...local, ...remoteList].forEach(item => {
+          if (item.id) mergedMap.set(item.id, item);
+        });
+        const mergedList = Array.from(mergedMap.values());
+        writeStorage(STORAGE_KEYS.EXAMS, mergedList);
+        return mergedList;
+      }
+    }
+  } catch (e) {
+    console.warn('Vercel remote exams fetch fallback:', e.message);
+  }
+
+  return getAllExams();
+}
+
+/**
  * Fetch remote student submissions from Vercel Serverless API backend to merge into Admin view!
  */
 export async function fetchRemoteSubmissions() {

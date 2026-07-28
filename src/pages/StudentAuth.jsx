@@ -3,7 +3,7 @@ import {
   GraduationCap, KeyRound, ShieldAlert, Maximize, AlertCircle, 
   CheckCircle, ArrowRight, UserCheck, Lock 
 } from 'lucide-react';
-import { getAllExams, getExamById } from '../services/storageService';
+import { getAllExams, getExamById, fetchRemoteExams } from '../services/storageService';
 import { validatePasscode, getCurrentPasscodeState } from '../services/passcodeService';
 
 export default function StudentAuth({ onStartExam, initialExamId }) {
@@ -18,6 +18,17 @@ export default function StudentAuth({ onStartExam, initialExamId }) {
   const [errorMsg, setErrorMsg] = useState('');
 
   const activeExam = getExamById(selectedExamId);
+
+  useEffect(() => {
+    fetchRemoteExams().then(updated => {
+      if (updated && updated.length > 0) {
+        setExams(updated);
+        if (!selectedExamId && updated[0]?.id) {
+          setSelectedExamId(updated[0].id);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (initialExamId) {
