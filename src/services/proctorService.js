@@ -18,6 +18,7 @@ export class ProctorManager {
     // Bound Event Handlers
     this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
     this.handleWindowBlur = this.handleWindowBlur.bind(this);
+    this.handleWindowFocus = this.handleWindowFocus.bind(this);
     this.handleFullscreenChange = this.handleFullscreenChange.bind(this);
     this.handleContextMenu = this.handleContextMenu.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
@@ -57,6 +58,7 @@ export class ProctorManager {
     // Attach listeners
     document.addEventListener('visibilitychange', this.handleVisibilityChange);
     window.addEventListener('blur', this.handleWindowBlur);
+    window.addEventListener('focus', this.handleWindowFocus);
     document.addEventListener('fullscreenchange', this.handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', this.handleFullscreenChange);
     document.addEventListener('contextmenu', this.handleContextMenu);
@@ -83,6 +85,7 @@ export class ProctorManager {
     document.body.classList.remove('proctor-blackout');
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('blur', this.handleWindowBlur);
+    window.removeEventListener('focus', this.handleWindowFocus);
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
     document.removeEventListener('webkitfullscreenchange', this.handleFullscreenChange);
     document.removeEventListener('contextmenu', this.handleContextMenu);
@@ -149,7 +152,15 @@ export class ProctorManager {
         'FOCUS_LOST',
         'Exam window lost focus (window swap/split screen).'
       );
+      // Auto-restore visibility after brief timeout so Security Warning Modal can be viewed
+      setTimeout(() => {
+        document.body.classList.remove('proctor-blackout');
+      }, 500);
     }
+  }
+
+  handleWindowFocus() {
+    document.body.classList.remove('proctor-blackout');
   }
 
   handleTouchStart(e) {

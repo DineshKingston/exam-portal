@@ -150,6 +150,7 @@ export default function ExamProctor({ examConfig, onFinish }) {
   };
 
   const handleReturnToFullscreen = async () => {
+    document.body.classList.remove('proctor-blackout');
     setWarningModalOpen(false);
     if (proctorRef.current) {
       await proctorRef.current.requestFullscreen();
