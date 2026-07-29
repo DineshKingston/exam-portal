@@ -186,7 +186,7 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
     setConfirmDeleteId(null);
   };
 
-  // Filter & Sort Submissions — sorted by submittedAt ascending (first finisher first)
+  // Filter & Sort Submissions — sorted by score/percentage descending
   const filteredSubmissions = submissions
     .filter(s => {
       const q = searchQuery.toLowerCase();
@@ -198,7 +198,25 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
       const matchExam = selectedExamFilter === 'all' || s.examId === selectedExamFilter;
       return matchSearch && matchExam;
     })
-    .sort((a, b) => new Date(a.submittedAt) - new Date(b.submittedAt));
+    .sort((a, b) => {
+      // 1. Sort by Grade Percentage (Highest Marks First)
+      if ((b.percentage ?? 0) !== (a.percentage ?? 0)) {
+        return (b.percentage ?? 0) - (a.percentage ?? 0);
+      }
+      // 2. Sort by Raw Score
+      if ((b.score ?? 0) !== (a.score ?? 0)) {
+        return (b.score ?? 0) - (a.score ?? 0);
+      }
+      // 3. Tiebreaker: Fastest Completion Time First
+      if ((a.timeTakenSeconds ?? 0) !== (b.timeTakenSeconds ?? 0)) {
+        return (a.timeTakenSeconds ?? 0) - (b.timeTakenSeconds ?? 0);
+      }
+      // 4. Tiebreaker: Fewest Proctor Flags First
+      if ((a.violationsCount ?? 0) !== (b.violationsCount ?? 0)) {
+        return (a.violationsCount ?? 0) - (b.violationsCount ?? 0);
+      }
+      return new Date(a.submittedAt) - new Date(b.submittedAt);
+    });
 
   // Comprehensive NVIDIA & OpenCode Catalog Models
   const nvidiaAndCatalogPresets = [
@@ -692,7 +710,7 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                   Student Results &amp; Audits
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Ranked by submission time — first to finish appears first
+                  Ranked Marks-Wise (Highest Score &amp; Grade first &bull; 🥇 1st, 🥈 2nd, 🥉 3rd Podium)
                 </p>
               </div>
               <div className="relative w-full sm:w-56">

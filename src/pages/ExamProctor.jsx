@@ -277,7 +277,7 @@ export default function ExamProctor({ examConfig, onFinish }) {
       />
 
       {/* Top Examination Control Bar */}
-      <div className="glass-panel rounded-2xl p-3 sm:p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-16 z-30 bg-slate-950/90 backdrop-blur-md">
+      <div className="glass-panel rounded-2xl p-3 sm:p-4 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-2 z-30 bg-slate-950/95 backdrop-blur-md shadow-2xl">
         
         {/* Exam Title & Student Info */}
         <div className="flex items-center justify-between sm:justify-start gap-2">

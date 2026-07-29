@@ -22,6 +22,7 @@ export class ProctorManager {
     this.handleContextMenu = this.handleContextMenu.bind(this);
     this.handleKeydown = this.handleKeydown.bind(this);
     this.handleCopyPaste = this.handleCopyPaste.bind(this);
+    this.handleTouchStart = this.handleTouchStart.bind(this);
     // Mobile specific handlers
     this.handlePopState = this.handlePopState.bind(this);
     this.handlePageHide = this.handlePageHide.bind(this);
@@ -63,6 +64,7 @@ export class ProctorManager {
     document.addEventListener('copy', this.handleCopyPaste);
     document.addEventListener('paste', this.handleCopyPaste);
     document.addEventListener('cut', this.handleCopyPaste);
+    document.addEventListener('touchstart', this.handleTouchStart, { passive: false });
 
     // Mobile: Push a dummy history state so Back button triggers popstate instead of navigating away
     history.pushState({ exam: true }, '');
@@ -78,6 +80,7 @@ export class ProctorManager {
   stopMonitoring() {
     this.isActive = false;
 
+    document.body.classList.remove('proctor-blackout');
     document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     window.removeEventListener('blur', this.handleWindowBlur);
     document.removeEventListener('fullscreenchange', this.handleFullscreenChange);
@@ -87,6 +90,7 @@ export class ProctorManager {
     document.removeEventListener('copy', this.handleCopyPaste);
     document.removeEventListener('paste', this.handleCopyPaste);
     document.removeEventListener('cut', this.handleCopyPaste);
+    document.removeEventListener('touchstart', this.handleTouchStart);
     window.removeEventListener('popstate', this.handlePopState);
     window.removeEventListener('pagehide', this.handlePageHide);
 
@@ -128,19 +132,43 @@ export class ProctorManager {
 
   handleVisibilityChange() {
     if (document.hidden) {
+      document.body.classList.add('proctor-blackout');
       this.triggerViolation(
         'TAB_SWITCH',
         'Student switched browser tab or minimized window.'
       );
+    } else {
+      document.body.classList.remove('proctor-blackout');
     }
   }
 
   handleWindowBlur() {
     if (this.isActive) {
+      document.body.classList.add('proctor-blackout');
       this.triggerViolation(
         'FOCUS_LOST',
         'Exam window lost focus (window swap/split screen).'
       );
+    }
+  }
+
+  handleTouchStart(e) {
+    if (!this.isActive) return;
+    // 3 or 4 finger swipe gesture detection (Android system screenshot gesture)
+    if (e.touches && e.touches.length >= 3) {
+      e.preventDefault();
+      document.body.classList.add('proctor-blackout');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('').catch(() => {});
+      }
+      this.triggerViolation(
+        'SCREENSHOT_ATTEMPT',
+        'Mobile 3-finger screenshot gesture detected and blocked.'
+      );
+      setTimeout(() => {
+        document.body.classList.remove('proctor-blackout');
+      }, 1500);
+      return false;
     }
   }
 
