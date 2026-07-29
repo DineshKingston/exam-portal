@@ -48,13 +48,19 @@ export default async function handler(req, res) {
         submission.id = submission.id || `sub-${Date.now().toString(36)}`;
         submission.submittedAt = submission.submittedAt || new Date().toISOString();
         
+        // Extract server-side client IP
+        const clientIp = req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : (req.socket?.remoteAddress || 'Local IP');
+        if (!submission.ipAddress || submission.ipAddress === 'Unknown IP') {
+          submission.ipAddress = clientIp;
+        }
+
         memoryStore = loadStore();
         // Avoid duplicate ID
         memoryStore = memoryStore.filter(s => s.id !== submission.id);
         memoryStore.unshift(submission);
         saveStore(memoryStore);
         
-        return res.status(200).json({ success: true, submission, total: memoryStore.length });
+        return res.status(200).json({ success: true, submission, total: memoryStore.length, clientIp });
       }
       return res.status(400).json({ success: false, message: 'Invalid submission payload' });
     } catch (e) {

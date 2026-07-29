@@ -3,6 +3,7 @@ import { Sparkles, Clock, ShieldCheck, CheckCircle2, Bookmark, AlertTriangle } f
 import { generateStudentExamQuestions } from '../services/aiService';
 import { saveSubmission, getAdminSettings } from '../services/storageService';
 import { ProctorManager } from '../services/proctorService';
+import { getStudentTelemetryPayload } from '../services/deviceService';
 import QuestionCard from '../components/QuestionCard';
 import SecurityWarningModal from '../components/SecurityWarningModal';
 import ResultCard from '../components/ResultCard';
@@ -21,6 +22,7 @@ export default function ExamProctor({ examConfig, onFinish }) {
   // View Mode: 'LOADING' | 'EXAM' | 'RESULT'
   const [viewState, setViewState] = useState('LOADING');
   const [questions, setQuestions] = useState([]);
+  const [telemetry, setTelemetry] = useState(null);
 
   // Exam Answers & State
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -39,6 +41,13 @@ export default function ExamProctor({ examConfig, onFinish }) {
 
   const settings = getAdminSettings();
   const maxWarningsAllowed = settings.maxWarningsAllowed || 2;
+
+  /* 0. Fetch Telemetry on Load */
+  useEffect(() => {
+    getStudentTelemetryPayload().then(data => {
+      setTelemetry(data);
+    });
+  }, []);
 
   /* 1. Fetch AI Questions on Mount */
   useEffect(() => {
@@ -147,7 +156,7 @@ export default function ExamProctor({ examConfig, onFinish }) {
     }
   };
 
-  const handleFinalSubmit = (forcedBySecurity = false) => {
+  const handleFinalSubmit = async (forcedBySecurity = false) => {
     // Stop proctoring
     if (proctorRef.current) {
       proctorRef.current.stopMonitoring();
@@ -169,6 +178,9 @@ export default function ExamProctor({ examConfig, onFinish }) {
     // Read violation count directly from ProctorManager (avoids stale React state closure)
     const liveViolations = proctorRef.current?.warningCount ?? lastViolation.warningCount ?? 0;
 
+    // Fetch latest telemetry if not set
+    const activeTelemetry = telemetry || await getStudentTelemetryPayload();
+
     const submissionData = {
       examId,
       examTitle,
@@ -180,7 +192,13 @@ export default function ExamProctor({ examConfig, onFinish }) {
       userAnswers,
       violationsCount: liveViolations,
       forcedBySecurity,
-      timeTakenSeconds
+      timeTakenSeconds,
+      ipAddress: activeTelemetry.ip || 'Unknown IP',
+      deviceType: activeTelemetry.deviceType || 'Desktop',
+      os: activeTelemetry.os || 'Unknown OS',
+      browser: activeTelemetry.browser || 'Unknown Browser',
+      screenResolution: activeTelemetry.screenResolution || '',
+      deviceFingerprint: activeTelemetry.deviceFingerprint || ''
     };
 
     // Save to Database
@@ -237,7 +255,16 @@ export default function ExamProctor({ examConfig, onFinish }) {
   const answeredCount = Object.keys(userAnswers).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 no-select">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 no-select relative">
+      
+      {/* Dynamic Forensic Security Watermark Overlay */}
+      <div className="fixed inset-0 pointer-events-none z-50 flex flex-wrap items-center justify-around opacity-[0.06] select-none overflow-hidden rotate-[-25deg]">
+        {Array.from({ length: 16 }).map((_, i) => (
+          <div key={i} className="text-xs font-mono font-extrabold text-slate-300 tracking-widest p-8 whitespace-nowrap">
+            PROCTOR AI &bull; {studentName} ({registerNo}) &bull; IP: {telemetry?.ip || 'PROTECTED'}
+          </div>
+        ))}
+      </div>
       
       {/* Security Warning Overlay Modal */}
       <SecurityWarningModal

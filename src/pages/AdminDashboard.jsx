@@ -34,7 +34,8 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
     questionCount: 10,
     difficulty: 'Medium',
     useDynamicPasscode: true,
-    staticPasscode: '123456'
+    staticPasscode: '123456',
+    allowedRoster: ''
   });
 
   // Settings State
@@ -900,6 +901,7 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                         {selectedExamFilter === 'all' && <th className="px-4 py-3.5">Course</th>}
                         <th className="px-4 py-3.5">Score</th>
                         <th className="px-4 py-3.5">Grade</th>
+                        <th className="px-4 py-3.5">IP &amp; Device</th>
                         <th className="px-4 py-3.5">Proctor</th>
                         <th className="px-4 py-3.5">Finished At</th>
                         <th className="px-4 py-3.5 w-20"></th>
@@ -931,6 +933,10 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                             }`}>
                               {sub.percentage}%
                             </span>
+                          </td>
+                          <td className="px-4 py-3.5 font-mono text-[11px]">
+                            <div className="text-indigo-300 font-semibold">{sub.ipAddress || 'Verified'}</div>
+                            <div className="text-slate-500 text-[10px]">{sub.deviceType || 'Desktop'} ({sub.browser || 'Browser'})</div>
                           </td>
                           <td className="px-4 py-3.5">
                             {sub.violationsCount === 0 ? (
@@ -1063,6 +1069,24 @@ export default function AdminDashboard({ onNavigate, initialTab = 'exams', isAdm
                     <option value="Hard">Hard (Applied)</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Official Student Roster Input */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Official Student Roster (Optional)</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Format: RegNo: Student Name</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder={`2026REG001: Dinesh Kingston\n2026REG002: Ramesh Kumar`}
+                  value={newExamForm.allowedRoster}
+                  onChange={(e) => setNewExamForm({ ...newExamForm, allowedRoster: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  💡 If specified, only listed Register Numbers can write this exam, and their official name is automatically locked to prevent fake names!
+                </p>
               </div>
 
               <div className="bg-indigo-950/40 border border-indigo-500/20 rounded-xl p-3.5 text-xs text-indigo-300 space-y-2">

@@ -182,31 +182,49 @@ export class ProctorManager {
 
   handleCopyPaste(e) {
     e.preventDefault();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText('').catch(() => {});
+    }
     this.triggerViolation('CLIPBOARD_ACTION', 'Clipboard Copy/Paste attempt blocked.');
     return false;
   }
 
   handleKeydown(e) {
-    // Block PrtScn key
+    const isMetaOrWin = e.metaKey || e.key === 'Meta' || e.key === 'Win';
+
+    // Block PrtScn key & Alt+PrtScn
     if (e.key === 'PrintScreen' || e.keyCode === 44) {
       e.preventDefault();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('').catch(() => {});
+      }
       this.triggerViolation('SCREENSHOT_ATTEMPT', 'PrintScreen key press blocked.');
       return false;
     }
 
+    // Block Windows Snipping Tool (Win + Shift + S / Meta + Shift + S) & Mac Screenshots (Cmd + Shift + 3 / 4 / 5 / S)
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && ['s', '3', '4', '5'].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('').catch(() => {});
+      }
+      this.triggerViolation('SCREENSHOT_ATTEMPT', `Screenshot shortcut (${e.metaKey ? 'Cmd/Win' : 'Ctrl'}+Shift+${e.key.toUpperCase()}) blocked.`);
+      return false;
+    }
+
     // Block F12 and Ctrl+Shift+I (DevTools)
-    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c'))) {
+    if (e.key === 'F12' || ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i', 'j', 'c'].includes(e.key.toLowerCase()))) {
       e.preventDefault();
       this.triggerViolation('DEVTOOLS_ATTEMPT', 'Developer Tools shortcut blocked.');
       return false;
     }
 
-    // Block Ctrl+C, Ctrl+V, Ctrl+U, Ctrl+P, Ctrl+S
+    // Block Ctrl/Cmd + C, V, X, U, P, S, A
     if (e.ctrlKey || e.metaKey) {
       const key = e.key.toLowerCase();
       if (['c', 'v', 'x', 'u', 'p', 's', 'a'].includes(key)) {
         e.preventDefault();
-        this.triggerViolation('SHORTCUT_BLOCKED', `Keyboard shortcut Ctrl+${key.toUpperCase()} blocked.`);
+        this.triggerViolation('SHORTCUT_BLOCKED', `Keyboard shortcut Ctrl/Cmd+${key.toUpperCase()} blocked.`);
         return false;
       }
     }

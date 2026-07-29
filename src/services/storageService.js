@@ -81,6 +81,7 @@ export function saveExam(examData) {
     difficulty: examData.difficulty || 'Medium',
     useDynamicPasscode: examData.useDynamicPasscode ?? true,
     staticPasscode: examData.staticPasscode || '123456',
+    allowedRoster: examData.allowedRoster || '', // e.g. "2026REG001: Dinesh Kingston, 2026REG002: Ramesh"
     createdAt: new Date().toISOString(),
     status: 'ACTIVE'
   };
@@ -92,6 +93,35 @@ export function saveExam(examData) {
   syncExamToVercelAPI(newExam);
 
   return newExam;
+}
+
+/**
+ * Verify Student Register Number & Official Name against exam roster
+ */
+export function verifyStudentRoster(exam, registerNo) {
+  if (!exam || !exam.allowedRoster || !exam.allowedRoster.trim()) {
+    return { allowed: true, officialName: null };
+  }
+
+  const lines = exam.allowedRoster.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+  const cleanReg = registerNo.trim().toUpperCase();
+
+  for (const line of lines) {
+    if (line.includes(':') || line.includes('-')) {
+      const parts = line.split(/[:-]/);
+      const reg = parts[0].trim().toUpperCase();
+      const name = parts.slice(1).join(' ').trim();
+      if (reg === cleanReg) {
+        return { allowed: true, officialName: name || null };
+      }
+    } else {
+      if (line.toUpperCase() === cleanReg) {
+        return { allowed: true, officialName: null };
+      }
+    }
+  }
+
+  return { allowed: false, officialName: null, message: `Register Number "${cleanReg}" is not registered in the official student roster for this exam.` };
 }
 
 export function deleteExam(examId) {

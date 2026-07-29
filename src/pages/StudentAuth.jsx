@@ -4,7 +4,7 @@ import {
   UserCheck, Lock, BookOpen, Loader2, ShieldAlert,
   CheckCircle, ChevronRight
 } from 'lucide-react';
-import { fetchRemoteExams } from '../services/storageService';
+import { fetchRemoteExams, verifyStudentRoster } from '../services/storageService';
 import { validatePasscode } from '../services/passcodeService';
 
 export default function StudentAuth({ onStartExam, initialExamId }) {
@@ -39,6 +39,16 @@ export default function StudentAuth({ onStartExam, initialExamId }) {
     }
   }, [initialExamId]);
 
+  const handleRegisterNoChange = (val) => {
+    setRegisterNo(val);
+    if (activeExam && val.trim()) {
+      const check = verifyStudentRoster(activeExam, val);
+      if (check.allowed && check.officialName) {
+        setStudentName(check.officialName);
+      }
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -51,6 +61,18 @@ export default function StudentAuth({ onStartExam, initialExamId }) {
     if (!activeExam) {
       setErrorMsg('Please select a valid exam course.');
       return;
+    }
+
+    // Verify official student roster
+    const rosterCheck = verifyStudentRoster(activeExam, registerNo);
+    if (!rosterCheck.allowed) {
+      setErrorMsg(rosterCheck.message || 'Register number is not listed in the official student roster for this exam.');
+      return;
+    }
+
+    if (rosterCheck.officialName && rosterCheck.officialName.toLowerCase() !== studentName.trim().toLowerCase()) {
+      // Auto-enforce official name
+      setStudentName(rosterCheck.officialName);
     }
 
     const isValidDynamic = validatePasscode(activeExam.id, passcode);
@@ -72,7 +94,7 @@ export default function StudentAuth({ onStartExam, initialExamId }) {
       topic: activeExam.topic,
       questionCount: activeExam.questionCount,
       difficulty: activeExam.difficulty,
-      studentName: studentName.trim(),
+      studentName: rosterCheck.officialName || studentName.trim(),
       registerNo: registerNo.trim().toUpperCase()
     });
   };
@@ -193,7 +215,7 @@ export default function StudentAuth({ onStartExam, initialExamId }) {
                     required
                     placeholder="e.g. 2026REG001"
                     value={registerNo}
-                    onChange={(e) => setRegisterNo(e.target.value)}
+                    onChange={(e) => handleRegisterNoChange(e.target.value)}
                     className="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm font-mono tracking-wider font-semibold uppercase"
                   />
                 </div>

@@ -23,10 +23,21 @@ export default function App() {
       const [path, queryStr] = hash.split('?');
       const params = {};
 
+      // Check standard URL search query first
+      if (window.location.search) {
+        new URLSearchParams(window.location.search).forEach((val, key) => {
+          params[key] = val;
+        });
+      }
+
       if (queryStr) {
         new URLSearchParams(queryStr).forEach((val, key) => {
           params[key] = val;
         });
+      }
+
+      if (params.exam) {
+        params.examId = params.exam;
       }
 
       if (path === 'admin') {

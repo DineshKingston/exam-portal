@@ -271,11 +271,17 @@ export async function testOpenCodeApiKey(apiKey, baseUrl = 'https://integrate.ap
  * based on Topic + Student Register No seed!
  */
 function generateDeterministicUniqueQuestions(topic, count, registerNo, difficulty) {
-  // Simple seed generator from Student Register No
-  let seed = 0;
+  // Seed PRNG generator from Student Register No
+  let seed = 1337;
   for (let i = 0; i < registerNo.length; i++) {
-    seed += registerNo.charCodeAt(i) * (i + 1);
+    seed = (seed * 31 + registerNo.charCodeAt(i)) % 2147483647;
   }
+
+  // Linear Congruential Generator (LCG) for deterministic seeded randomness
+  const prng = () => {
+    seed = (seed * 16807) % 2147483647;
+    return (seed - 1) / 2147483646;
+  };
 
   const topicKeywords = topic.split(/\s+/).filter(Boolean);
   const mainTopic = topicKeywords.join(' ') || 'General Knowledge';
@@ -283,7 +289,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
   const questionBankPool = [
     {
       template: (t) => `Which of the following best defines the primary concept of ${t}?`,
-      options: (t, s) => [
+      options: (t) => [
         `A structured methodology designed to optimize ${t} workflows and problem solving`,
         `A legacy manual protocol used before modern computing systems`,
         `An abstract hardware component used for network packet routing`,
@@ -294,7 +300,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `When implementing ${t} in real-world scenarios, what is a crucial best practice?`,
-      options: (t, s) => [
+      options: (t) => [
         `Ignoring error handling to maximize execution speed`,
         `Modular design, consistent validation, and clear documentation`,
         `Storing all security keys directly inside public repositories`,
@@ -305,7 +311,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `What is the key advantage of utilizing ${t} over traditional approaches?`,
-      options: (t, s) => [
+      options: (t) => [
         `Increased computational cost with no performance gain`,
         `Higher latency during peak workloads`,
         `Enhanced efficiency, scalability, and simplified maintainability`,
@@ -316,7 +322,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `In the context of ${t}, how does real-time monitoring impact system health?`,
-      options: (t, s) => [
+      options: (t) => [
         `It enables early anomaly detection and proactive resolution`,
         `It degrades system security by exposing internal telemetry`,
         `It slows down CPU clock frequency by 50%`,
@@ -327,7 +333,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `Which scenario represents an ideal application of ${t}?`,
-      options: (t, s) => [
+      options: (t) => [
         `Automating repetitive tasks and data processing at scale`,
         `Manually entering records on physical ledger books`,
         `Disabling network encryption for internal office devices`,
@@ -338,7 +344,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `What common pitfall should be avoided when designing solutions for ${t}?`,
-      options: (t, s) => [
+      options: (t) => [
         `Writing unit tests for critical functions`,
         `Over-engineering simple requirements without performance benefit`,
         `Using standard version control systems`,
@@ -349,7 +355,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `How does data integrity play a vital role in ${t}?`,
-      options: (t, s) => [
+      options: (t) => [
         `It guarantees that information remains accurate, consistent, and unaltered`,
         `It randomizes stored values to prevent correlation`,
         `It forces all data to be converted into static text files`,
@@ -360,7 +366,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `Which component forms the foundational building block of ${t}?`,
-      options: (t, s) => [
+      options: (t) => [
         `Core logic modules and structured data schemas`,
         `Third-party advertising widgets`,
         `Unencrypted temporary cache files`,
@@ -371,7 +377,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `What security standard is essential when deploying ${t} applications?`,
-      options: (t, s) => [
+      options: (t) => [
         `Least privilege access control and encrypted transport`,
         `Broadcasting admin credentials over unencrypted HTTP`,
         `Disabling authentication for external API endpoints`,
@@ -382,7 +388,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `In performance optimization for ${t}, what metric is typically evaluated first?`,
-      options: (t, s) => [
+      options: (t) => [
         `Response latency and throughput under load`,
         `The physical weight of the server rack`,
         `The number of comments in the CSS stylesheet`,
@@ -393,7 +399,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `When scaling ${t} for thousands of concurrent users, what architecture pattern is recommended?`,
-      options: (t, s) => [
+      options: (t) => [
         `Stateless microservices with distributed caching`,
         `Monolithic single-threaded script running on a desktop`,
         `Storing user sessions in global text files`,
@@ -404,7 +410,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `What role does automated regression testing play in ${t} development?`,
-      options: (t, s) => [
+      options: (t) => [
         `It catches unexpected bugs and breaks before production releases`,
         `It automatically deletes old codebase commits`,
         `It doubles the size of database storage required`,
@@ -415,7 +421,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `How should failure recovery be handled in a robust ${t} setup?`,
-      options: (t, s) => [
+      options: (t) => [
         `With automated failover mechanisms and health checks`,
         `By manually restarting servers only during business hours`,
         `By ignoring system logs`,
@@ -426,7 +432,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `What is the impact of asynchronous execution in modern ${t} platforms?`,
-      options: (t, s) => [
+      options: (t) => [
         `Prevents thread blocking and improves total concurrent throughput`,
         `Forces all network calls to execute strictly one at a time`,
         `Increases CPU usage exponentially for idle states`,
@@ -437,7 +443,7 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
     },
     {
       template: (t) => `Why is continuous integration (CI/CD) valuable for teams working on ${t}?`,
-      options: (t, s) => [
+      options: (t) => [
         `It streamlines building, testing, and automated deployment`,
         `It replaces the need for human developers`,
         `It prevents code from being committed to repositories`,
@@ -445,36 +451,157 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
       ],
       correctIdx: 0,
       explanation: (t) => `CI/CD pipelines automate quality gates and deployment cycles for rapid, reliable delivery.`
+    },
+    {
+      template: (t) => `Which layer of the architecture is primarily responsible for business logic in ${t}?`,
+      options: (t) => [
+        `Application / Service Domain Layer`,
+        `Physical Cabling & Hardware Switch Layer`,
+        `Client Display Rendering Engine`,
+        `Static Asset CDN Edge Cache`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `The domain/service layer encapsulates state rules and domain workflows.`
+    },
+    {
+      template: (t) => `How does caching improve user experience when working with ${t}?`,
+      options: (t) => [
+        `Reduces database load and accelerates response time for frequent queries`,
+        `Deletes cold data to save disk space automatically`,
+        `Encrypts static images with zero overhead`,
+        `Forces all clients to re-download raw files on every page click`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `In-memory caching avoids repetitive disk/DB lookups for hot data.`
+    },
+    {
+      template: (t) => `What is a core principle of defensive programming in ${t}?`,
+      options: (t) => [
+        `Validating all input boundaries and assuming external data can be malformed`,
+        `Trusting all incoming API parameters without sanitization`,
+        `Writing long single-file functions to avoid modular imports`,
+        `Turning off logging in production environments`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Defensive programming anticipates bad inputs and unexpected edge cases.`
+    },
+    {
+      template: (t) => `In database management for ${t}, what is the main purpose of indexing?`,
+      options: (t) => [
+        `Speeding up record retrieval by reducing table scan time`,
+        `Compressing table columns into binary zips`,
+        `Automatically deleting records older than 30 days`,
+        `Locking tables permanently during write operations`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Indexes create lookup trees so queries run in O(log N) instead of O(N) full table scans.`
+    },
+    {
+      template: (t) => `What distinguishes synchronous communication from asynchronous communication in ${t}?`,
+      options: (t) => [
+        `Synchronous blocks execution until a response arrives; asynchronous non-blocks`,
+        `Synchronous is faster under all network conditions`,
+        `Asynchronous requires dedicated satellite uplinks`,
+        `Synchronous can only run on mobile devices`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Asynchronous operations allow threads to continue other tasks while awaiting I/O completion.`
+    },
+    {
+      template: (t) => `When performing code reviews for ${t}, what aspect is most critical to evaluate?`,
+      options: (t) => [
+        `Correctness, security vulnerabilities, edge cases, and code clarity`,
+        `The font style used in the code editor`,
+        `Whether variables use single or double quotes exclusively`,
+        `The developer's typing speed`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Code reviews focus on preventing bugs, ensuring security standards, and maintaining readability.`
+    },
+    {
+      template: (t) => `What is the primary function of API rate limiting in ${t}?`,
+      options: (t) => [
+        `Protecting servers against denial-of-service (DoS) attacks and resource exhaustion`,
+        `Slowing down legitimate users to save electricity`,
+        `Restricting access to paid subscribers only`,
+        `Auto-generating database migrations`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Rate limiters cap requests per minute to prevent malicious overloading of server nodes.`
+    },
+    {
+      template: (t) => `Why is structured logging essential for diagnosing production issues in ${t}?`,
+      options: (t) => [
+        `Enables automated log parsing, searching, and metric aggregation`,
+        `Reduces total log file size to zero bytes`,
+        `Prevents stack traces from being recorded`,
+        `Hides errors from system administrators`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Structured JSON logs allow log processors (like ELK/Datadog) to index attributes for rapid debugging.`
+    },
+    {
+      template: (t) => `What is the role of environment variables in ${t} configuration?`,
+      options: (t) => [
+        `Separating configuration and secrets from source code across environments`,
+        `Increasing the execution speed of Javascript loops`,
+        `Storing user passwords in plain text on client machines`,
+        `Formatting HTML output automatically`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Environment variables decouple environment-specific configs (dev/prod keys) from codebase commits.`
+    },
+    {
+      template: (t) => `How does load balancing contribute to high availability in ${t}?`,
+      options: (t) => [
+        `Distributes incoming traffic across multiple healthy server instances`,
+        `Forces all traffic through a single master node`,
+        `Powers down inactive servers during peak hours`,
+        `Increases network packet sizes`
+      ],
+      correctIdx: 0,
+      explanation: (t) => `Load balancers route client requests away from degraded instances to healthy targets.`
     }
   ];
 
-  // Rotate and permute question choices according to student's seed!
-  const generated = [];
   const totalAvailable = questionBankPool.length;
 
-  for (let i = 0; i < Math.min(count, totalAvailable); i++) {
-    // Determine question index based on student seed
-    const qIndex = (seed + i * 3) % totalAvailable;
+  // Create an array of indices [0, 1, 2, ..., totalAvailable - 1]
+  const indices = Array.from({ length: totalAvailable }, (_, idx) => idx);
+
+  // Perform Fisher-Yates shuffle using our seeded PRNG
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(prng() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+
+  // Pick required number of unique question items without replacement!
+  const targetCount = Math.min(count, totalAvailable);
+  const selectedIndices = indices.slice(0, targetCount);
+
+  const generated = [];
+
+  for (let i = 0; i < selectedIndices.length; i++) {
+    const qIndex = selectedIndices[i];
     const item = questionBankPool[qIndex];
 
-    const rawOptions = item.options(mainTopic, seed);
-    // Shuffle options per student seed so correct option position varies
-    const optionShift = (seed + i) % 4;
-    const shiftedOptions = [...rawOptions];
+    const rawOptions = item.options(mainTopic);
     
-    // Rotate options array
-    for (let r = 0; r < optionShift; r++) {
-      shiftedOptions.push(shiftedOptions.shift());
+    // Seeded shuffle of options per question so correct choice position varies
+    const optionIndices = [0, 1, 2, 3];
+    for (let o = optionIndices.length - 1; o > 0; o--) {
+      const oj = Math.floor(prng() * (o + 1));
+      [optionIndices[o], optionIndices[oj]] = [optionIndices[oj], optionIndices[o]];
     }
 
-    // Find new position of the correct answer string
-    const correctAnswerStr = rawOptions[item.correctIdx];
-    const newCorrectIdx = shiftedOptions.indexOf(correctAnswerStr);
+    const shuffledOptions = optionIndices.map(idx => rawOptions[idx]);
+    const originalCorrectStr = rawOptions[item.correctIdx];
+    const newCorrectIdx = shuffledOptions.indexOf(originalCorrectStr);
 
     generated.push({
       id: i + 1,
       question: item.template(mainTopic),
-      options: shiftedOptions,
+      options: shuffledOptions,
       answerIndex: newCorrectIdx >= 0 ? newCorrectIdx : 0,
       explanation: item.explanation(mainTopic)
     });
@@ -482,3 +609,4 @@ function generateDeterministicUniqueQuestions(topic, count, registerNo, difficul
 
   return generated;
 }
+

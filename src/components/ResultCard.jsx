@@ -97,6 +97,22 @@ export default function ResultCard({
             </div>
           </div>
         </div>
+
+        {/* Student Network & Device Telemetry Audit */}
+        <div className="mt-4 pt-4 border-t border-slate-800/80 flex flex-wrap items-center justify-around gap-3 text-xs text-slate-400 font-mono">
+          <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+            <span className="text-indigo-400 font-bold">🌐 IP:</span>
+            <span className="text-slate-200 font-bold">{submission.ipAddress || 'Verified'}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+            <span className="text-indigo-400 font-bold">📱 Device:</span>
+            <span className="text-slate-200">{submission.deviceType || 'Desktop'} ({submission.os || 'OS'})</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+            <span className="text-indigo-400 font-bold">🌐 Browser:</span>
+            <span className="text-slate-200">{submission.browser || 'Browser'}</span>
+          </div>
+        </div>
       </div>
 
       {/* Questions & Explanations Detailed Breakdown */}
